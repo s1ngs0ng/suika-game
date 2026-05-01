@@ -5,17 +5,17 @@ const {
 
 // ─── 이미지 교체 시 이 배열만 수정하면 됩니다 ───────────────────────────
 const FRUIT_CONFIG = [
-  { radius: 24,  scoreValue: 1,  img: './assets/img/circle0.png'  }, // 0: 체리
-  { radius: 32,  scoreValue: 3,  img: './assets/img/circle1.png'  }, // 1: 딸기
-  { radius: 40,  scoreValue: 6,  img: './assets/img/circle2.png'  }, // 2: 포도
-  { radius: 56,  scoreValue: 10, img: './assets/img/circle3.png'  }, // 3: 레몬
-  { radius: 64,  scoreValue: 15, img: './assets/img/circle4.png'  }, // 4: 귤
-  { radius: 72,  scoreValue: 21, img: './assets/img/circle5.png'  }, // 5: 사과
-  { radius: 84,  scoreValue: 28, img: './assets/img/circle6.png'  }, // 6: 배
-  { radius: 96,  scoreValue: 36, img: './assets/img/circle7.png'  }, // 7: 복숭아
-  { radius: 128, scoreValue: 45, img: './assets/img/circle8.png'  }, // 8: 파인애플
-  { radius: 160, scoreValue: 55, img: './assets/img/circle9.png'  }, // 9: 멜론
-  { radius: 192, scoreValue: 66, img: './assets/img/circle10.png' }, // 10: 수박
+  { radius: 32,  scoreValue: 1,  img: './assets/img/circle0.png'  }, // 0: 체리
+  { radius: 43,  scoreValue: 3,  img: './assets/img/circle1.png'  }, // 1: 딸기
+  { radius: 54,  scoreValue: 6,  img: './assets/img/circle2.png'  }, // 2: 포도
+  { radius: 76,  scoreValue: 10, img: './assets/img/circle3.png'  }, // 3: 레몬
+  { radius: 86,  scoreValue: 15, img: './assets/img/circle4.png'  }, // 4: 귤
+  { radius: 97,  scoreValue: 21, img: './assets/img/circle5.png'  }, // 5: 사과
+  { radius: 113, scoreValue: 28, img: './assets/img/circle6.png'  }, // 6: 배
+  { radius: 130, scoreValue: 36, img: './assets/img/circle7.png'  }, // 7: 복숭아
+  { radius: 173, scoreValue: 45, img: './assets/img/circle8.png'  }, // 8: 파인애플
+  { radius: 216, scoreValue: 55, img: './assets/img/circle9.png'  }, // 9: 멜론
+  { radius: 259, scoreValue: 66, img: './assets/img/circle10.png' }, // 10: 수박
 ];
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -79,6 +79,7 @@ const mouse           = Mouse.create(render.canvas);
 const mouseConstraint = MouseConstraint.create(engine, {
   mouse,
   constraint: { stiffness: 0.2, render: { visible: false } },
+  collisionFilter: { mask: 0x0000 }, // 바디 드래그 차단
 });
 render.mouse = mouse;
 Composite.add(engine.world, mouseConstraint);
@@ -398,14 +399,24 @@ function initMenu() {
 
 // ─── 반응형 리사이즈 ─────────────────────────────────────────────────────────
 function resizeCanvas() {
-  const SIDE_W = 260 + 28; // 컬럼 너비 + gap
   const sw = document.body.clientWidth;
-  const sh = document.body.clientHeight - 64;
-  const availW = Math.max(sw - SIDE_W * 2 - 48, 200); // 좌우 패딩 48px
-  let w, h, scale;
+  const sh = document.body.clientHeight;
 
-  if (availW * 1.5 > sh) {
-    h     = Math.min(960, sh);
+  const isMobile = sw < 700;
+  const isTablet = sw >= 700 && sw < 1100;
+
+  const sideW = isMobile ? 0 : isTablet ? 180 : 260;
+  const gap   = isMobile ? 0 : isTablet ?  32 : 150;
+  const padV  = isMobile ? 140 : 64; // 모바일은 상하 패널 공간
+
+  const availW = isMobile
+    ? Math.max(sw * 0.80, 200)
+    : Math.max(sw - (sideW + gap) * 2 - 48, 200);
+  const availH = sh - padV;
+
+  let w, h, scale;
+  if (availW * 1.5 > availH) {
+    h     = Math.min(960, availH);
     w     = h / 1.5;
     scale = h / 960;
   } else {
@@ -420,7 +431,8 @@ function resizeCanvas() {
   el.ui.style.height         = '960px';
   el.ui.style.transform      = `scale(${scale})`;
 
-  document.getElementById('side-right').style.height = `${h - 128}px`;
+  const sideRight = document.getElementById('side-right');
+  sideRight.style.height = isMobile ? 'auto' : `${h - (isTablet ? 64 : 128)}px`;
 }
 
 window.addEventListener('load',   resizeCanvas);
