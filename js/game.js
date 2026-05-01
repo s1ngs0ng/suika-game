@@ -1,0 +1,429 @@
+const {
+  Engine, Render, Runner, MouseConstraint, Mouse,
+  Composite, Bodies, Events,
+} = Matter;
+
+// ─── 이미지 교체 시 이 배열만 수정하면 됩니다 ───────────────────────────
+const FRUIT_CONFIG = [
+  { radius: 24,  scoreValue: 1,  img: './assets/img/circle0.png'  }, // 0: 체리
+  { radius: 32,  scoreValue: 3,  img: './assets/img/circle1.png'  }, // 1: 딸기
+  { radius: 40,  scoreValue: 6,  img: './assets/img/circle2.png'  }, // 2: 포도
+  { radius: 56,  scoreValue: 10, img: './assets/img/circle3.png'  }, // 3: 레몬
+  { radius: 64,  scoreValue: 15, img: './assets/img/circle4.png'  }, // 4: 귤
+  { radius: 72,  scoreValue: 21, img: './assets/img/circle5.png'  }, // 5: 사과
+  { radius: 84,  scoreValue: 28, img: './assets/img/circle6.png'  }, // 6: 배
+  { radius: 96,  scoreValue: 36, img: './assets/img/circle7.png'  }, // 7: 복숭아
+  { radius: 128, scoreValue: 45, img: './assets/img/circle8.png'  }, // 8: 파인애플
+  { radius: 160, scoreValue: 55, img: './assets/img/circle9.png'  }, // 9: 멜론
+  { radius: 192, scoreValue: 66, img: './assets/img/circle10.png' }, // 10: 수박
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WALL_PAD       = 64;
+const LOSE_Y         = 84;
+const STATUS_H       = 48;
+const PREVIEW_Y      = 32;
+const DROP_COOLDOWN  = 500;
+const SPAWN_MAX_IDX  = 4; // 처음 등장할 수 있는 과일 최대 인덱스
+
+const FRICTION = {
+  friction:       0.006,
+  frictionStatic: 0.006,
+  frictionAir:    0,
+  restitution:    0.1,
+};
+
+const State = { MENU: 0, READY: 1, DROP: 2, LOSE: 3 };
+
+function seededRand(seed) {
+  return function () {
+    let t = (seed += 0x6D2B79F5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const rand = seededRand(Date.now());
+
+// ─── DOM 참조 ────────────────────────────────────────────────────────────────
+const el = {
+  canvas:         document.getElementById('game-canvas'),
+  ui:             document.getElementById('game-ui'),
+  score:          document.getElementById('game-score'),
+  highscore:      document.getElementById('game-highscore-value'),
+  nextFruitImg:   document.getElementById('game-next-fruit'),
+  endContainer:   document.getElementById('game-end-container'),
+  endTitle:       document.getElementById('game-end-title'),
+  endScore:       document.getElementById('game-end-score'),
+  introScreen:    document.getElementById('intro-screen'),
+  introFruits:    document.getElementById('intro-fruits'),
+  introStartBtn:  document.getElementById('intro-start-btn'),
+};
+
+// ─── Matter.js 초기화 ─────────────────────────────────────────────────────
+const engine = Engine.create();
+const runner = Runner.create();
+const render = Render.create({
+  element: el.canvas,
+  engine,
+  options: {
+    width:      640,
+    height:     960,
+    wireframes: false,
+    background: '#030710',
+  },
+});
+
+const mouse           = Mouse.create(render.canvas);
+const mouseConstraint = MouseConstraint.create(engine, {
+  mouse,
+  constraint: { stiffness: 0.2, render: { visible: false } },
+});
+render.mouse = mouse;
+Composite.add(engine.world, mouseConstraint);
+
+// ─── 게임 상태 ───────────────────────────────────────────────────────────────
+const game = {
+  state:        State.MENU,
+  score:        0,
+  mergeCount:   new Array(FRUIT_CONFIG.length).fill(0),
+  currentIdx:   0,
+  nextIdx:      0,
+  previewBody:  null,
+  highscore:    0,
+};
+
+// ─── 점수 계산 ───────────────────────────────────────────────────────────────
+function calcScore() {
+  game.score = game.mergeCount.reduce(
+    (total, count, i) => total + FRUIT_CONFIG[i].scoreValue * count,
+    0
+  );
+  el.score.textContent = game.score;
+}
+
+// ─── 로컬스토리지 ────────────────────────────────────────────────────────────
+function loadHighscore() {
+  const saved = localStorage.getItem('suika-highscore');
+  game.highscore = saved ? parseInt(saved, 10) : 0;
+  el.highscore.textContent = game.highscore;
+}
+
+function saveHighscore() {
+  calcScore();
+  if (game.score <= game.highscore) return;
+  game.highscore = game.score;
+  el.highscore.textContent = game.highscore;
+  el.endTitle.textContent = '최고 기록 갱신!';
+  localStorage.setItem('suika-highscore', game.highscore);
+}
+
+// ─── 과일 바디 생성 ──────────────────────────────────────────────────────────
+function makeFruitBody(x, y, sizeIdx, extra = {}) {
+  const { radius, img } = FRUIT_CONFIG[sizeIdx];
+  const scale = radius / 512;
+  const body = Bodies.circle(x, y, radius, {
+    ...FRICTION,
+    ...extra,
+    render: { sprite: { texture: img, xScale: scale, yScale: scale } },
+  });
+  body.sizeIndex = sizeIdx;
+  body.popped    = false;
+  return body;
+}
+
+// ─── 합체 이펙트 ─────────────────────────────────────────────────────────────
+function spawnPop(x, y, radius) {
+  const circle = Bodies.circle(x, y, radius, {
+    isStatic: true,
+    collisionFilter: { mask: 0x0040 },
+    angle: rand() * Math.PI * 2,
+    render: {
+      sprite: {
+        texture: './assets/img/pop.png',
+        xScale: radius / 384,
+        yScale: radius / 384,
+      },
+    },
+  });
+  Composite.add(engine.world, circle);
+  setTimeout(() => Composite.remove(engine.world, circle), 100);
+}
+
+// ─── 사운드 ──────────────────────────────────────────────────────────────────
+const sounds = {
+  click: new Audio('./assets/sounds/click.mp3'),
+  pop:   FRUIT_CONFIG.map((_, i) => new Audio(`./assets/sounds/pop${i}.mp3`)),
+};
+
+function playClick() {
+  sounds.click.currentTime = 0;
+  sounds.click.play().catch(() => {});
+}
+
+function playPop(idx) {
+  const s = sounds.pop[idx];
+  if (!s) return;
+  s.currentTime = 0;
+  s.play().catch(() => {});
+}
+
+// ─── 진화의 고리 ─────────────────────────────────────────────────────────────
+function buildEvolutionRing() {
+  const ring = document.getElementById('evolution-ring');
+  const total = FRUIT_CONFIG.length;
+  const R = 122;
+
+  FRUIT_CONFIG.forEach((fruit, i) => {
+    const angle = (2 * Math.PI * i) / total - Math.PI / 2;
+    const x = R * Math.cos(angle);
+    const y = R * Math.sin(angle);
+    const size = 32 + i * 3;
+
+    const img = document.createElement('img');
+    img.src = fruit.img;
+    img.style.cssText = `position:absolute;width:${size}px;height:${size}px;` +
+      `left:calc(50% + ${x}px - ${size / 2}px);` +
+      `top:calc(50% + ${y}px - ${size / 2}px);` +
+      `object-fit:contain;image-rendering:pixelated;`;
+    ring.appendChild(img);
+  });
+}
+
+// ─── 인트로 과일 원형 배치 ────────────────────────────────────────────────────
+function buildIntroFruits() {
+  const total  = FRUIT_CONFIG.length;
+  const radius = 210;
+  el.introFruits.innerHTML = '';
+
+  FRUIT_CONFIG.forEach((fruit, i) => {
+    const angle = (2 * Math.PI * i) / total;
+    const x     = radius * Math.cos(angle);
+    const y     = radius * Math.sin(angle);
+    const li    = document.createElement('li');
+    li.style.backgroundImage = `url(${fruit.img})`;
+    li.style.top             = `calc(50% + ${y}px - 24px)`;
+    li.style.left            = `calc(50% + ${x}px - 24px)`;
+    el.introFruits.appendChild(li);
+  });
+}
+
+// ─── 게임 벽 ─────────────────────────────────────────────────────────────────
+const wallStyle = { isStatic: true, render: { fillStyle: '#293b49' }, ...FRICTION };
+const gameBodies = [
+  Bodies.rectangle(-(WALL_PAD / 2),       480,                     WALL_PAD, 960, wallStyle), // 좌벽
+  Bodies.rectangle(640 + (WALL_PAD / 2),  480,                     WALL_PAD, 960, wallStyle), // 우벽
+  Bodies.rectangle(320,                   960 + (WALL_PAD / 2) - STATUS_H, 640, WALL_PAD, wallStyle), // 바닥
+];
+
+// ─── 다음 과일 설정 ──────────────────────────────────────────────────────────
+function pickNextFruit() {
+  game.nextIdx = Math.floor(rand() * (SPAWN_MAX_IDX + 1));
+  el.nextFruitImg.src = FRUIT_CONFIG[game.nextIdx].img;
+}
+
+// ─── 프리뷰 볼 업데이트 ───────────────────────────────────────────────────────
+function updatePreview(x) {
+  if (!game.previewBody) return;
+  game.previewBody.position.x = Math.max(
+    FRUIT_CONFIG[game.currentIdx].radius,
+    Math.min(640 - FRUIT_CONFIG[game.currentIdx].radius, x)
+  );
+}
+
+// ─── 과일 투하 ───────────────────────────────────────────────────────────────
+function dropFruit(x) {
+  if (game.state !== State.READY) return;
+  playClick();
+
+  game.state = State.DROP;
+  render.canvas.style.cursor = 'default';
+  const clampedX = Math.max(
+    FRUIT_CONFIG[game.currentIdx].radius,
+    Math.min(640 - FRUIT_CONFIG[game.currentIdx].radius, x)
+  );
+
+  Composite.add(engine.world, makeFruitBody(clampedX, PREVIEW_Y, game.currentIdx));
+
+  game.currentIdx = game.nextIdx;
+  pickNextFruit();
+  calcScore();
+
+  if (game.previewBody) Composite.remove(engine.world, game.previewBody);
+  game.previewBody = makeFruitBody(render.mouse.position.x, PREVIEW_Y, game.currentIdx, {
+    isStatic: true,
+    collisionFilter: { mask: 0x0040 },
+  });
+
+  setTimeout(() => {
+    if (game.state === State.DROP) {
+      Composite.add(engine.world, game.previewBody);
+      game.state = State.READY;
+      render.canvas.style.cursor = 'pointer';
+    }
+  }, DROP_COOLDOWN);
+}
+
+// ─── 게임 오버 ───────────────────────────────────────────────────────────────
+function loseGame() {
+  if (game.state === State.LOSE) return;
+  game.state = State.LOSE;
+  calcScore();
+  el.endScore.textContent       = `점수: ${game.score}`;
+  el.endContainer.style.display = 'flex';
+  runner.enabled                = false;
+  saveHighscore();
+}
+
+// ─── 충돌 이벤트 ─────────────────────────────────────────────────────────────
+function onCollision(e) {
+  for (const { bodyA, bodyB } of e.pairs) {
+    if (bodyA.isStatic || bodyB.isStatic) continue;
+
+    const topA = bodyA.position.y - bodyA.circleRadius;
+    const topB = bodyB.position.y - bodyB.circleRadius;
+    if (topA < LOSE_Y || topB < LOSE_Y) {
+      loseGame();
+      return;
+    }
+
+    if (bodyA.sizeIndex !== bodyB.sizeIndex) continue;
+    if (bodyA.popped || bodyB.popped)        continue;
+
+    const maxIdx   = FRUIT_CONFIG.length - 1;
+    const newIdx   = bodyA.sizeIndex >= maxIdx ? 0 : bodyA.sizeIndex + 1;
+    const midX     = (bodyA.position.x + bodyB.position.x) / 2;
+    const midY     = (bodyA.position.y + bodyB.position.y) / 2;
+    const oldIdx   = bodyA.sizeIndex;
+
+    bodyA.popped = true;
+    bodyB.popped = true;
+
+    game.mergeCount[oldIdx] += 1;
+    playPop(oldIdx);
+
+    Composite.remove(engine.world, [bodyA, bodyB]);
+    Composite.add(engine.world, makeFruitBody(midX, midY, newIdx));
+    spawnPop(midX, midY, bodyA.circleRadius);
+    calcScore();
+  }
+}
+
+// ─── 투하 가이드 라인 ────────────────────────────────────────────────────────
+function drawGuideLine() {
+  if (game.state !== State.READY || !game.previewBody) return;
+
+  const ctx    = render.context;
+  const x      = game.previewBody.position.x;
+  const startY = PREVIEW_Y + FRUIT_CONFIG[game.currentIdx].radius;
+  const endY   = 960 - STATUS_H;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(119, 214, 193, 0.55)'; // Pineapple 32 cyan #77d6c1
+  ctx.lineWidth   = 2;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x, startY);
+  ctx.lineTo(x, endY);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ─── 위험선 ──────────────────────────────────────────────────────────────────
+function drawDangerLine() {
+  if (game.state === State.MENU || game.state === State.LOSE) return;
+
+  const ctx = render.context;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(217, 36, 60, 0.55)'; // Pineapple 32 red #d9243c
+  ctx.lineWidth   = 2;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0,   LOSE_Y);
+  ctx.lineTo(640, LOSE_Y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ─── 게임 시작 ───────────────────────────────────────────────────────────────
+function startGame() {
+  playClick();
+
+  Composite.add(engine.world, gameBodies);
+
+  game.mergeCount = new Array(FRUIT_CONFIG.length).fill(0);
+  calcScore();
+  el.ui.style.display       = 'block';
+  el.endContainer.style.display = 'none';
+  el.endTitle.textContent   = '게임 오버!';
+  runner.enabled            = true;
+
+  game.currentIdx  = Math.floor(rand() * (SPAWN_MAX_IDX + 1));
+  pickNextFruit();
+
+  game.previewBody = makeFruitBody(320, PREVIEW_Y, game.currentIdx, {
+    isStatic: true,
+    collisionFilter: { mask: 0x0040 },
+  });
+  Composite.add(engine.world, game.previewBody);
+
+  setTimeout(() => { game.state = State.READY; }, 250);
+
+  Events.on(mouseConstraint, 'mouseup',   (e) => dropFruit(e.mouse.position.x));
+  Events.on(mouseConstraint, 'mousemove', (e) => { if (game.state === State.READY) updatePreview(e.mouse.position.x); });
+  Events.on(engine,          'collisionStart', onCollision);
+
+  Events.on(render, 'afterRender', drawGuideLine);
+  Events.on(render, 'afterRender', drawDangerLine);
+}
+
+// ─── 메뉴 초기화 ─────────────────────────────────────────────────────────────
+function initMenu() {
+  loadHighscore();
+  el.ui.style.display = 'none';
+
+  buildIntroFruits();
+  buildEvolutionRing();
+
+  Render.run(render);
+  Runner.run(runner, engine);
+
+  el.introStartBtn.addEventListener('click', () => {
+    el.introScreen.style.display = 'none';
+    render.canvas.style.cursor = 'pointer';
+    startGame();
+  });
+}
+
+// ─── 반응형 리사이즈 ─────────────────────────────────────────────────────────
+function resizeCanvas() {
+  const SIDE_W = 260 + 28; // 컬럼 너비 + gap
+  const sw = document.body.clientWidth;
+  const sh = document.body.clientHeight - 64;
+  const availW = Math.max(sw - SIDE_W * 2 - 48, 200); // 좌우 패딩 48px
+  let w, h, scale;
+
+  if (availW * 1.5 > sh) {
+    h     = Math.min(960, sh);
+    w     = h / 1.5;
+    scale = h / 960;
+  } else {
+    w     = Math.min(640, availW);
+    h     = w * 1.5;
+    scale = w / 640;
+  }
+
+  render.canvas.style.width  = `${w}px`;
+  render.canvas.style.height = `${h}px`;
+  el.ui.style.width          = '640px';
+  el.ui.style.height         = '960px';
+  el.ui.style.transform      = `scale(${scale})`;
+
+  document.getElementById('side-right').style.height = `${h - 128}px`;
+}
+
+window.addEventListener('load',   resizeCanvas);
+window.addEventListener('resize', resizeCanvas);
+
+initMenu();

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>통이의 수박게임</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    /* ── Pineapple 32 팔레트 변수 ── */
+    :root {
+      --bg:        #030710;
+      --bg-mid:    #041528;
+      --panel:     #293b49;
+      --panel-lt:  #6d8a8d;
+      --yellow:    #ffd832;
+      --yellow-dk: #7c3d00;
+      --green:     #9cb93b;
+      --green-dk:  #458239;
+      --cyan:      #77d6c1;
+      --red:       #d9243c;
+      --white:     #ffffe4;
+      --gray:      #6d8a8d;
+      --shadow:    rgba(3, 7, 16, 0.75);
+    }
+
+    * { box-sizing: border-box; padding: 0; margin: 0; line-height: 1; }
+
+    body {
+      background: var(--bg);
+      font-family: 'Press Start 2P', monospace;
+      overflow: hidden;
+    }
+
+    /* 전체 스캔라인 오버레이 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.04) 0px,
+        rgba(0,0,0,0.04) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      pointer-events: none;
+      z-index: 998;
+    }
+
+    /* ── 캔버스 래퍼 ── */
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      height: 100vh;
+      padding: 32px 24px;
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 150px;
+    }
+
+    /* 흰색 픽셀 바구니 테두리 */
+    #game-canvas {
+      position: relative;
+      border: 5px solid var(--white);
+      box-shadow:
+        0 0 0 4px var(--bg),               /* 어두운 갭 */
+        0 0 0 8px rgba(255,255,228,0.2);   /* 외곽 희미한 글로우 */
+    }
+
+    canvas { display: block; image-rendering: pixelated; }
+
+    /* ── HUD ── */
+    #game-ui {
+      position: absolute;
+      width: 640px;
+      height: 960px;
+      pointer-events: none;
+      user-select: none;
+      display: none;
+      transform-origin: top left;
+    }
+
+    /* ── 사이드 컬럼 ── */
+    #side-left, #side-right {
+      flex-shrink: 0;
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      margin-top: 64px;
+    }
+
+    #side-left  { gap: 24px; }
+    #side-right { justify-content: space-between; }
+
+    /* ── 레트로 박스 (흰 테두리) ── */
+    .retro-box {
+      border: 3px solid var(--white);
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 24px;
+      gap: 10px;
+    }
+
+    .box-label {
+      font-size: 8px;
+      color: rgba(255, 255, 228, 0.5);
+      letter-spacing: 4px;
+      text-align: center;
+    }
+
+    #game-score {
+      font-size: 56px;
+      color: var(--yellow);
+      text-shadow: 4px 4px 0 var(--yellow-dk);
+      text-align: center;
+      word-break: break-all;
+      line-height: 1.1;
+    }
+
+    .box-divider {
+      width: 100%;
+      border: none;
+      border-top: 2px solid rgba(255, 255, 228, 0.15);
+      margin: 4px 0;
+    }
+
+    .box-best {
+      font-size: 14px;
+      color: var(--cyan);
+      text-align: center;
+      word-break: break-all;
+    }
+
+    #game-next-fruit {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    /* ── 진화의 고리 ── */
+    #evolution-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    #evolution-ring {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      border: 3px solid var(--white);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+
+    /* ── 게임오버 ── */
+    #game-end-container {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: var(--shadow);
+      pointer-events: initial;
+    }
+
+    #game-end {
+      text-align: center;
+      padding: 36px 48px;
+      background: var(--bg-mid);
+      border: 4px solid var(--yellow);
+      box-shadow: 6px 6px 0 var(--yellow-dk);
+    }
+
+    #game-end-title {
+      font-size: 30px;
+      color: var(--red);
+      text-shadow: 3px 3px 0 #7c191a;
+    }
+
+    #game-end-score {
+      font-size: 14px;
+      color: var(--white);
+      margin-top: 20px;
+      line-height: 2;
+    }
+
+    #game-retry-btn {
+      display: inline-block;
+      color: var(--bg);
+      font-size: 13px;
+      font-family: 'Press Start 2P', monospace;
+      background: var(--green);
+      margin-top: 28px;
+      padding: 14px 28px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 var(--green-dk);
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+
+    #game-retry-btn:hover  { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--green-dk); }
+    #game-retry-btn:active { transform: translate(4px,4px); box-shadow: none; }
+
+    /* ── 인트로 ── */
+    #intro-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(3, 7, 16, 0.88);
+      user-select: none;
+    }
+
+    /* 스타필드 캔버스 */
+    #bg-stars {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    #intro-fruits {
+      position: absolute;
+      inset: 0;
+      list-style: none;
+      animation: intro-orbit 50s linear infinite;
+    }
+
+    #intro-fruits li {
+      position: absolute;
+      width: 52px;
+      height: 52px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      image-rendering: pixelated;
+      animation: intro-orbit 5s linear infinite;
+    }
+
+    #intro-center {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 36px;
+    }
+
+    #intro-title {
+      font-size: 2em;
+      color: var(--yellow);
+      text-align: center;
+      line-height: 1.8;
+      text-shadow: 4px 4px 0 var(--yellow-dk);
+    }
+
+    #intro-start-btn {
+      font-size: 1.1em;
+      font-family: 'Press Start 2P', monospace;
+      color: var(--bg);
+      background: #77d6c1;
+      border: none;
+      cursor: pointer;
+      padding: 18px 36px;
+      letter-spacing: 2px;
+      box-shadow: 4px 4px 0 #1c92a7;
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+
+    #intro-start-btn:hover  { transform: translate(2px,2px); box-shadow: 2px 2px 0 #1c92a7; }
+    #intro-start-btn:active { transform: translate(4px,4px); box-shadow: none; }
+
+    #intro-version {
+      position: fixed;
+      bottom: 1.2em;
+      font-size: 0.55em;
+      color: var(--panel-lt);
+      letter-spacing: 3px;
+    }
+
+    @keyframes intro-orbit {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* ── 포켓몬 레이어 ── */
+    #pokemon-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    #pokemon-layer img {
+      position: absolute;
+      width: 144px;
+      height: 144px;
+      image-rendering: pixelated;
+      opacity: 0.9;
+      transition: opacity 0.3s ease;
+    }
+
+    @keyframes pokemon-shine {
+      0%   { filter: brightness(1)   drop-shadow(0 0 0px  rgba(255,255,100,0)); }
+      15%  { filter: brightness(4)   drop-shadow(0 0 28px rgba(255,255,80,1));  }
+      40%  { filter: brightness(2.5) drop-shadow(0 0 18px rgba(255,220,50,0.9));}
+      70%  { filter: brightness(1.5) drop-shadow(0 0 10px rgba(255,200,50,0.5));}
+      100% { filter: brightness(1)   drop-shadow(0 0 0px  rgba(255,255,100,0)); }
+    }
+
+    .pokemon-shine {
+      animation: pokemon-shine 1.8s ease-out forwards;
+    }
+
+    /* ── 몬스터볼 버튼 ── */
+    #pokeball-btn {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      z-index: 200;
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(255, 255, 228, 0.35);
+      border-radius: 50%;
+      cursor: pointer;
+      padding: 18px;
+      filter: drop-shadow(0 0 14px rgba(255, 255, 228, 0.5));
+      transition: filter 0.2s, transform 0.2s, background 0.2s;
+    }
+
+    #pokeball-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      filter: drop-shadow(0 0 24px rgba(255, 255, 228, 1));
+      transform: scale(1.1);
+    }
+
+    #pokeball-btn img {
+      width: 90px;
+      height: 90px;
+      image-rendering: pixelated;
+      display: block;
+    }
+
+    @keyframes pokeball-spin {
+      0%   { transform: rotate(0deg) scale(1); }
+      40%  { transform: rotate(200deg) scale(1.2); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+
+    #pokeball-btn.throwing img {
+      animation: pokeball-spin 0.5s ease-out forwards;
+    }
+  </style>
+</head>
+<body>
+  <!-- 스타필드 배경 -->
+  <canvas id="bg-stars"></canvas>
+
+  <!-- 포켓몬 레이어 -->
+  <div id="pokemon-layer"></div>
+
+  <!-- 몬스터볼 버튼 -->
+  <button id="pokeball-btn" title="새 포켓몬 소환">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="pokeball">
+  </button>
+
+  <!-- 인트로 -->
+  <div id="intro-screen">
+    <ul id="intro-fruits"></ul>
+    <div id="intro-center">
+      <h1 id="intro-title">통이의<br>수박게임</h1>
+      <button id="intro-start-btn">GAME START</button>
+    </div>
+    <span id="intro-version">v1.0.0</span>
+  </div>
+
+  <!-- 게임 -->
+  <div class="container">
+    <!-- 왼쪽: 점수 박스 -->
+    <div id="side-left">
+      <div class="retro-box">
+        <span class="box-label">SCORE</span>
+        <p id="game-score">0</p>
+        <hr class="box-divider">
+        <span class="box-label">BEST</span>
+        <span class="box-best" id="game-highscore-value">0</span>
+      </div>
+    </div>
+
+    <div id="game-canvas">
+      <div id="game-ui">
+        <div id="game-end-container">
+          <div id="game-end">
+            <div id="game-end-title">GAME OVER</div>
+            <div id="game-end-score"></div>
+            <button id="game-retry-btn" onclick="location.reload()">RETRY</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오른쪽: NEXT 박스 + 진화의 고리 -->
+    <div id="side-right">
+      <div class="retro-box">
+        <span class="box-label">NEXT</span>
+        <img id="game-next-fruit" src="./assets/img/circle0.png" alt="next" />
+      </div>
+      <div id="evolution-wrap">
+        <span class="box-label">진화의 고리</span>
+        <div id="evolution-ring"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./js/matter.js"></script>
+  <script src="./js/game.js"></script>
+
+  <script>
+  // ── 바다 배경 (전체 화면) ──────────────────────────────────────────────────
+  (function () {
+    const canvas = document.getElementById('bg-stars');
+
+    function draw() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const SCALE = 2;
+      const vw = Math.ceil(canvas.width  / SCALE);
+      const vh = Math.ceil(canvas.height / SCALE);
+
+      const vc = document.createElement('canvas');
+      vc.width  = vw;
+      vc.height = vh;
+      const g   = vc.getContext('2d');
+      g.imageSmoothingEnabled = false;
+
+      // ── 1. 배경 ───────────────────────────────────────────────────────
+      g.fillStyle = '#030710';
+      g.fillRect(0, 0, vw, vh);
+
+      // ── 2. 초승달 ─────────────────────────────────────────────────────
+      const mX = Math.floor(vw * 0.78);
+      const mY = Math.floor(vh * 0.17);
+      const mR = 12;
+
+      g.fillStyle = 'rgba(255,255,228,0.06)';
+      g.beginPath(); g.arc(mX, mY, mR+6, 0, Math.PI*2); g.fill();
+
+      g.fillStyle = '#ffffe4';
+      g.beginPath(); g.arc(mX, mY, mR, 0, Math.PI*2); g.fill();
+
+      g.fillStyle = '#030710';
+      g.beginPath(); g.arc(mX+7, mY-3, mR-1, 0, Math.PI*2); g.fill();
+
+      g.fillStyle = 'rgba(119,214,193,0.18)';
+      g.beginPath(); g.arc(mX, mY, mR+2, 0, Math.PI*2); g.fill();
+      g.fillStyle = '#030710';
+      g.beginPath(); g.arc(mX+7, mY-3, mR-1, 0, Math.PI*2); g.fill();
+
+      // ── 3. 스케일업 ───────────────────────────────────────────────────
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(vc, 0, 0, canvas.width, canvas.height);
+
+      // ── 4. 별 ─────────────────────────────────────────────────────────
+      const W = canvas.width, H = canvas.height;
+      for (let i = 0; i < 160; i++) {
+        const x = Math.floor(Math.random() * W);
+        const y = Math.floor(Math.random() * H);
+        const a = (0.3 + Math.random() * 0.7).toFixed(2);
+        ctx.fillStyle = `rgba(255,255,228,${a})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
+      for (let i = 0; i < 15; i++) {
+        ctx.fillStyle = 'rgba(119,214,193,0.6)';
+        ctx.fillRect(Math.floor(Math.random()*W), Math.floor(Math.random()*H), 1, 1);
+      }
+    }
+
+    draw();
+    window.addEventListener('resize', draw);
+  })();
+  </script>
+
+  <script>
+  // ── 포켓몬 배경 애니메이션 ──────────────────────────────────────────────────
+  (function () {
+    const COUNT   = 10;
+    const SIZE    = 144;
+    const MAX_ID  = 151;
+    const SPRITE  = id => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+
+    const layer       = document.getElementById('pokemon-layer');
+    const pokeballBtn = document.getElementById('pokeball-btn');
+    const mons        = [];
+
+    function randomId(exclude) {
+      let id;
+      do { id = Math.floor(Math.random() * MAX_ID) + 1; }
+      while (exclude.includes(id));
+      return id;
+    }
+
+    function spawn(id, x, y, dir, shine = false) {
+      const img     = document.createElement('img');
+      img.src       = SPRITE(id);
+      img.draggable = false;
+      if (shine) img.classList.add('pokemon-shine');
+      layer.appendChild(img);
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.08 + Math.random() * 0.10;
+
+      return {
+        id, el: img,
+        x: x ?? Math.random() * (window.innerWidth  - SIZE),
+        y: y ?? Math.random() * (window.innerHeight - SIZE),
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+      };
+    }
+
+    function init() {
+      layer.innerHTML = '';
+      mons.length = 0;
+      const ids = [];
+      for (let i = 0; i < COUNT; i++) {
+        const id = randomId(ids);
+        ids.push(id);
+        mons.push(spawn(id));
+      }
+    }
+
+    function tick() {
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      for (const p of mons) {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x <= 0)        { p.x = 0;        p.vx =  Math.abs(p.vx); }
+        if (p.x >= W - SIZE) { p.x = W - SIZE; p.vx = -Math.abs(p.vx); }
+        if (p.y <= 0)        { p.y = 0;        p.vy =  Math.abs(p.vy); }
+        if (p.y >= H - SIZE) { p.y = H - SIZE; p.vy = -Math.abs(p.vy); }
+
+        p.el.style.transform = `scaleX(${p.vx < 0 ? -1 : 1})`;
+        p.el.style.left = p.x + 'px';
+        p.el.style.top  = p.y + 'px';
+      }
+      requestAnimationFrame(tick);
+    }
+
+    function playPokeballSFX() {
+      try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+
+        // 타격음
+        const o1 = ac.createOscillator(), g1 = ac.createGain();
+        o1.connect(g1); g1.connect(ac.destination);
+        o1.type = 'square';
+        o1.frequency.setValueAtTime(520, ac.currentTime);
+        o1.frequency.exponentialRampToValueAtTime(160, ac.currentTime + 0.18);
+        g1.gain.setValueAtTime(0.18, ac.currentTime);
+        g1.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.18);
+        o1.start(); o1.stop(ac.currentTime + 0.18);
+
+        // 반짝임
+        const o2 = ac.createOscillator(), g2 = ac.createGain();
+        o2.connect(g2); g2.connect(ac.destination);
+        o2.type = 'sine';
+        o2.frequency.setValueAtTime(1400, ac.currentTime + 0.12);
+        o2.frequency.exponentialRampToValueAtTime(700, ac.currentTime + 0.45);
+        g2.gain.setValueAtTime(0, ac.currentTime + 0.12);
+        g2.gain.setValueAtTime(0.22, ac.currentTime + 0.15);
+        g2.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.45);
+        o2.start(ac.currentTime + 0.12); o2.stop(ac.currentTime + 0.45);
+      } catch(e) {}
+    }
+
+    pokeballBtn.addEventListener('click', () => {
+      playPokeballSFX();
+      pokeballBtn.classList.remove('throwing');
+      void pokeballBtn.offsetWidth;
+      pokeballBtn.classList.add('throwing');
+
+      const idx   = Math.floor(Math.random() * mons.length);
+      const old   = mons[idx];
+      const newId = randomId(mons.map(m => m.id));
+
+      old.el.style.opacity = '0';
+      setTimeout(() => {
+        old.el.remove();
+        const np = spawn(newId, old.x, old.y, null, true);
+        np.vx = old.vx; np.vy = old.vy;
+        np.el.style.opacity = '0';
+        mons[idx]      = np;
+        setTimeout(() => { np.el.style.opacity = '0.9'; }, 50);
+      }, 300);
+
+      pokeballBtn.addEventListener('animationend', () => {
+        pokeballBtn.classList.remove('throwing');
+      }, { once: true });
+    });
+
+    init();
+    requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>
