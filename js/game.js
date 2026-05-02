@@ -131,6 +131,7 @@ function makeFruitBody(x, y, sizeIdx, extra = {}) {
   });
   body.sizeIndex = sizeIdx;
   body.popped    = false;
+  body.droppedAt = Date.now();
   return body;
 }
 
@@ -282,13 +283,6 @@ function onCollision(e) {
   for (const { bodyA, bodyB } of e.pairs) {
     if (bodyA.isStatic || bodyB.isStatic) continue;
 
-    const topA = bodyA.position.y - bodyA.circleRadius;
-    const topB = bodyB.position.y - bodyB.circleRadius;
-    if (topA < LOSE_Y || topB < LOSE_Y) {
-      loseGame();
-      return;
-    }
-
     if (bodyA.sizeIndex !== bodyB.sizeIndex) continue;
     if (bodyA.popped || bodyB.popped)        continue;
 
@@ -371,9 +365,43 @@ function startGame() {
 
   setTimeout(() => { game.state = State.READY; }, 250);
 
-  Events.on(mouseConstraint, 'mouseup',   (e) => dropFruit(e.mouse.position.x));
-  Events.on(mouseConstraint, 'mousemove', (e) => { if (game.state === State.READY) updatePreview(e.mouse.position.x); });
+  // 마우스/터치 좌표를 Matter.js 경유 없이 직접 변환 (PWA 좌표 오차 방지)
+  function toPhysX(clientX) {
+    const r = render.canvas.getBoundingClientRect();
+    return (clientX - r.left) * (640 / r.width);
+  }
+
+  render.canvas.addEventListener('mousemove', e => {
+    if (game.state === State.READY) updatePreview(toPhysX(e.clientX));
+  });
+  render.canvas.addEventListener('mouseup', e => dropFruit(toPhysX(e.clientX)));
+
+  render.canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (game.state === State.READY) updatePreview(toPhysX(e.touches[0].clientX));
+  }, { passive: false });
+  render.canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (game.state === State.READY) updatePreview(toPhysX(e.touches[0].clientX));
+  }, { passive: false });
+  render.canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    dropFruit(toPhysX(e.changedTouches[0].clientX));
+  }, { passive: false });
   Events.on(engine,          'collisionStart', onCollision);
+
+  Events.on(engine, 'afterUpdate', () => {
+    if (game.state !== State.READY && game.state !== State.DROP) return;
+    const now = Date.now();
+    for (const body of Composite.allBodies(engine.world)) {
+      if (body.isStatic || body.sizeIndex === undefined) continue;
+      if (now - body.droppedAt < DROP_COOLDOWN) continue;
+      if (body.position.y + body.circleRadius < LOSE_Y) {
+        loseGame();
+        return;
+      }
+    }
+  });
 
   Events.on(render, 'afterRender', drawGuideLine);
   Events.on(render, 'afterRender', drawDangerLine);
@@ -432,9 +460,6 @@ function resizeCanvas() {
   el.ui.style.transform      = `scale(${scale})`;
 
   engine.gravity.y = 1 / scale;
-
-  mouse.scale.x = 640 / w;
-  mouse.scale.y = 960 / h;
 
   const sideRight = document.getElementById('side-right');
   sideRight.style.height = isMobile ? 'auto' : `${h - (isTablet ? 64 : 128)}px`;
