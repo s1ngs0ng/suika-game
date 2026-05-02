@@ -1,4 +1,4 @@
-const CACHE = 'suika-v4';
+const CACHE = 'suika-v9';
 const ASSETS = [
   './',
   './index.html',
@@ -15,9 +15,12 @@ const ASSETS = [
   './assets/img/circle8.png',
   './assets/img/circle9.png',
   './assets/img/circle10.png',
+  './assets/img/circle11.png',
+  './assets/img/circle12.png',
   './assets/img/pop.png',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
+  './assets/share_template.png',
 ];
 
 self.addEventListener('install', e => {

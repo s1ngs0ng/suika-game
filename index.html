@@ -193,6 +193,24 @@
       line-height: 1;
     }
 
+    /* ── EXIT 버튼 ── */
+    #exit-divider,
+    #exit-btn { display: none; }
+
+    #exit-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: rgba(255, 255, 228, 0.45);
+      background: transparent;
+      border: 2px solid rgba(255, 255, 228, 0.18);
+      cursor: pointer;
+      padding: 10px 16px;
+      width: 100%;
+      letter-spacing: 2px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #exit-btn:hover { color: var(--red); border-color: var(--red); }
+
     /* ── 게임오버 ── */
     #game-end-container {
       position: absolute;
@@ -225,22 +243,45 @@
       line-height: 2;
     }
 
-    #game-retry-btn {
+    #game-end-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-top: 28px;
+    }
+
+    #game-retry-btn, #game-share-btn {
       display: inline-block;
-      color: var(--bg);
       font-size: 13px;
       font-family: 'Press Start 2P', monospace;
-      background: var(--green);
-      margin-top: 28px;
       padding: 14px 28px;
       border: none;
       cursor: pointer;
-      box-shadow: 4px 4px 0 var(--green-dk);
       transition: transform 0.08s, box-shadow 0.08s;
+    }
+
+    #game-retry-btn {
+      color: var(--bg);
+      background: var(--green);
+      box-shadow: 4px 4px 0 var(--green-dk);
+    }
+
+    #game-share-btn {
+      color: var(--bg);
+      background: var(--cyan);
+      box-shadow: 4px 4px 0 #1c92a7;
     }
 
     #game-retry-btn:hover  { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--green-dk); }
     #game-retry-btn:active { transform: translate(4px,4px); box-shadow: none; }
+    #game-share-btn:hover  { transform: translate(2px,2px); box-shadow: 2px 2px 0 #1c92a7; }
+    #game-share-btn:active { transform: translate(4px,4px); box-shadow: none; }
+
+    .game-end-id {
+      font-size: 9px;
+      opacity: 0.45;
+      letter-spacing: 2px;
+    }
 
     /* ── 인트로 ── */
     #intro-screen {
@@ -507,10 +548,71 @@
     @media (max-width: 699px) {
       #pokeball-btn { bottom: 14px; right: 14px; padding: 0; }
       #pokeball-btn img { width: 45px; height: 45px; }
-      #pokeball-btn::before {
-        display: none;
-      }
+      #pokeball-btn::before { display: none; }
+
+      #exit-btn { width: auto; font-size: 8px; padding: 6px 10px; }
     }
+
+    /* ── 공유 미리보기 모달 ── */
+    #share-preview-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(3, 7, 16, 0.88);
+    }
+
+    #share-preview-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 28px;
+      background: rgba(4, 21, 40, 0.97);
+      border: 3px solid var(--cyan);
+      box-shadow: 6px 6px 0 #1c92a7;
+      max-width: 90vw;
+    }
+
+    #share-preview-img {
+      max-width: min(360px, 80vw);
+      max-height: 65vh;
+      object-fit: contain;
+      border: 2px solid rgba(255,255,228,0.15);
+      border-radius: 28px;
+      display: block;
+    }
+
+    #share-preview-btns {
+      display: flex;
+      gap: 16px;
+    }
+
+    #share-cancel-btn, #share-confirm-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      padding: 12px 24px;
+      cursor: pointer;
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+
+    #share-cancel-btn {
+      color: rgba(255,255,228,0.6);
+      background: transparent;
+      border: 2px solid rgba(255,255,228,0.25);
+    }
+    #share-cancel-btn:hover { color: var(--red); border-color: var(--red); }
+
+    #share-confirm-btn {
+      color: var(--bg);
+      background: var(--cyan);
+      border: none;
+      box-shadow: 4px 4px 0 #1c92a7;
+    }
+    #share-confirm-btn:hover  { transform: translate(2px,2px); box-shadow: 2px 2px 0 #1c92a7; }
+    #share-confirm-btn:active { transform: translate(4px,4px); box-shadow: none; }
   </style>
 </head>
 <body>
@@ -522,6 +624,18 @@
 
   <!-- 포켓몬 토스트 -->
   <div id="poke-toast"></div>
+
+  <!-- 공유 미리보기 모달 -->
+  <div id="share-preview-overlay">
+    <div id="share-preview-box">
+      <span class="box-label">공유 미리보기</span>
+      <img id="share-preview-img" alt="share card" />
+      <div id="share-preview-btns">
+        <button id="share-cancel-btn" onclick="cancelShare()">취소</button>
+        <button id="share-confirm-btn" onclick="doShare()">공유하기</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 몬스터볼 버튼 -->
   <button id="pokeball-btn" title="새 포켓몬 소환">
@@ -535,7 +649,7 @@
       <h1 id="intro-title">통이의<br>수박게임</h1>
       <button id="intro-start-btn">GAME START</button>
     </div>
-    <span id="intro-version">v1.1.0</span>
+    <span id="intro-version">v1.2.0</span>
   </div>
 
   <!-- 게임 -->
@@ -557,7 +671,10 @@
           <div id="game-end">
             <div id="game-end-title">GAME OVER</div>
             <div id="game-end-score"></div>
-            <button id="game-retry-btn" onclick="location.reload()">RETRY</button>
+            <div id="game-end-buttons">
+              <button id="game-retry-btn" onclick="location.reload()">RETRY</button>
+              <button id="game-share-btn" onclick="shareScore()">SHARE</button>
+            </div>
           </div>
         </div>
       </div>
@@ -568,6 +685,8 @@
       <div class="retro-box">
         <span class="box-label">NEXT</span>
         <img id="game-next-fruit" src="./assets/img/circle0.png" alt="next" />
+        <hr class="box-divider" id="exit-divider">
+        <button id="exit-btn">EXIT</button>
       </div>
       <div id="evolution-wrap">
         <span class="box-label">진화의 고리</span>
