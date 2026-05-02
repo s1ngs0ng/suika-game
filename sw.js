@@ -1,4 +1,4 @@
-const CACHE = 'suika-v1';
+const CACHE = 'suika-v2';
 const ASSETS = [
   './',
   './index.html',
