@@ -5,17 +5,17 @@ const {
 
 // ─── 이미지 교체 시 이 배열만 수정하면 됩니다 ───────────────────────────
 const FRUIT_CONFIG = [
-  { radius: 20,  scoreValue: 1,  img: './assets/img/circle0.png',  spriteHalf: 276 }, // 0: 체리
-  { radius: 24,  scoreValue: 3,  img: './assets/img/circle1.png',  spriteHalf: 340 }, // 1: 딸기
-  { radius: 32,  scoreValue: 6,  img: './assets/img/circle2.png',  spriteHalf: 328 }, // 2: 포도
-  { radius: 45,  scoreValue: 10, img: './assets/img/circle3.png',  spriteHalf: 372 }, // 3: 레몬
-  { radius: 55,  scoreValue: 15, img: './assets/img/circle4.png',  spriteHalf: 509 }, // 4: 귤
-  { radius: 68,  scoreValue: 21, img: './assets/img/circle5.png',  spriteHalf: 393, ringSize: 50 }, // 5: 사과
-  { radius: 84,  scoreValue: 28, img: './assets/img/circle6.png',  spriteHalf: 409, ringSize: 53 }, // 6: 배
-  { radius: 103, scoreValue: 36, img: './assets/img/circle7.png',  spriteHalf: 434 }, // 7: 복숭아
-  { radius: 114, scoreValue: 45, img: './assets/img/circle8.png',  spriteHalf: 408 }, // 8: 파인애플
-  { radius: 127, scoreValue: 55, img: './assets/img/circle9.png',  spriteHalf: 511 }, // 9: 멜론
-  { radius: 156, scoreValue: 66, img: './assets/img/circle10.png', spriteHalf: 388 }, // 10: 수박
+  { radius: 20,  scoreValue: 1,  img: './assets/img/circle0.png',  spriteHalf: 113 }, // 0: 체리
+  { radius: 24,  scoreValue: 3,  img: './assets/img/circle1.png',  spriteHalf: 139 }, // 1: 딸기
+  { radius: 32,  scoreValue: 6,  img: './assets/img/circle2.png',  spriteHalf: 134 }, // 2: 포도
+  { radius: 45,  scoreValue: 10, img: './assets/img/circle3.png',  spriteHalf: 152 }, // 3: 레몬
+  { radius: 55,  scoreValue: 15, img: './assets/img/circle4.png',  spriteHalf: 254 }, // 4: 귤
+  { radius: 68,  scoreValue: 21, img: './assets/img/circle5.png',  spriteHalf: 196, ringSize: 50 }, // 5: 사과
+  { radius: 84,  scoreValue: 28, img: './assets/img/circle6.png',  spriteHalf: 204, ringSize: 53 }, // 6: 배
+  { radius: 103, scoreValue: 36, img: './assets/img/circle7.png',  spriteHalf: 217 }, // 7: 복숭아
+  { radius: 114, scoreValue: 45, img: './assets/img/circle8.png',  spriteHalf: 204 }, // 8: 파인애플
+  { radius: 127, scoreValue: 55, img: './assets/img/circle9.png',  spriteHalf: 256 }, // 9: 멜론
+  { radius: 156, scoreValue: 66, img: './assets/img/circle10.png', spriteHalf: 158 }, // 10: 수박
 ];
 // ─────────────────────────────────────────────────────────────────────────────
 
