@@ -103,7 +103,7 @@
     /* ── 사이드 컬럼 ── */
     #side-left, #side-right {
       flex-shrink: 0;
-      width: 260px;
+      width: 290px;
       display: flex;
       flex-direction: column;
       align-items: stretch;
@@ -136,7 +136,7 @@
       color: var(--yellow);
       text-shadow: 4px 4px 0 var(--yellow-dk);
       text-align: center;
-      word-break: break-all;
+      white-space: nowrap;
       line-height: 1.1;
     }
 
@@ -334,7 +334,7 @@
         padding: 24px 16px;
       }
       #side-left, #side-right {
-        width: 180px;
+        width: 200px;
         margin-top: 32px;
       }
       #game-score { font-size: 36px; }
@@ -482,6 +482,28 @@
       animation: pokeball-spin 0.5s ease-out forwards;
     }
 
+    /* ── 포켓몬 토스트 ── */
+    #poke-toast {
+      position: fixed;
+      background: var(--bg-mid);
+      border: 2px solid var(--cyan);
+      color: var(--white);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      padding: 10px 16px;
+      white-space: nowrap;
+      z-index: 201;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateX(-50%) translateY(-6px);
+      transition: opacity 0.25s, transform 0.25s;
+    }
+    #poke-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
     @media (max-width: 699px) {
       #pokeball-btn { bottom: 14px; right: 14px; padding: 0; }
       #pokeball-btn img { width: 45px; height: 45px; }
@@ -497,6 +519,9 @@
 
   <!-- 포켓몬 레이어 -->
   <div id="pokemon-layer"></div>
+
+  <!-- 포켓몬 토스트 -->
+  <div id="poke-toast"></div>
 
   <!-- 몬스터볼 버튼 -->
   <button id="pokeball-btn" title="새 포켓몬 소환">
@@ -718,6 +743,40 @@
       } catch(e) {}
     }
 
+    const TYPE_EMOJI = {
+      normal:'⭐', fire:'🔥', water:'💧', grass:'🌿', electric:'⚡',
+      ice:'❄️', fighting:'🥊', poison:'☠️', ground:'🌍', flying:'🌬️',
+      psychic:'🔮', bug:'🐛', rock:'🪨', ghost:'👻', dragon:'🐉',
+      dark:'🌑', steel:'⚙️', fairy:'🌸',
+    };
+
+    const pokeToast = document.getElementById('poke-toast');
+    let toastTimer = null;
+
+    function showPokeToast(name, types, px, py) {
+      const emojis = types.map(t => TYPE_EMOJI[t] || '❓').join(' ');
+      pokeToast.textContent = `${emojis}  ${name}`;
+      const cx = Math.max(80, Math.min(window.innerWidth - 80, px + SIZE / 2));
+      pokeToast.style.left = `${cx}px`;
+      pokeToast.style.top  = `${Math.min(window.innerHeight - 60, py + SIZE + 8)}px`;
+      pokeToast.classList.remove('show');
+      void pokeToast.offsetWidth;
+      pokeToast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => pokeToast.classList.remove('show'), 2800);
+    }
+
+    function fetchAndToast(id, px, py) {
+      Promise.all([
+        fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r => r.json()),
+        fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`).then(r => r.json()),
+      ]).then(([poke, species]) => {
+        const koName = species.names.find(n => n.language.name === 'ko')?.name || poke.name;
+        const types  = poke.types.map(t => t.type.name);
+        showPokeToast(koName, types, px, py);
+      }).catch(() => {});
+    }
+
     pokeballBtn.addEventListener('click', () => {
       playPokeballSFX();
       pokeballBtn.classList.remove('throwing');
@@ -737,6 +796,8 @@
         mons[idx]      = np;
         setTimeout(() => { np.el.style.opacity = '0.9'; }, 50);
       }, 300);
+
+      fetchAndToast(newId, old.x, old.y);
 
       pokeballBtn.addEventListener('animationend', () => {
         pokeballBtn.classList.remove('throwing');
