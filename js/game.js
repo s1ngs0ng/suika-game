@@ -5,17 +5,17 @@ const {
 
 // ─── 이미지 교체 시 이 배열만 수정하면 됩니다 ───────────────────────────
 const FRUIT_CONFIG = [
-  { radius: 32,  scoreValue: 1,  img: './assets/img/circle0.png'  }, // 0: 체리
-  { radius: 43,  scoreValue: 3,  img: './assets/img/circle1.png'  }, // 1: 딸기
-  { radius: 54,  scoreValue: 6,  img: './assets/img/circle2.png'  }, // 2: 포도
-  { radius: 76,  scoreValue: 10, img: './assets/img/circle3.png'  }, // 3: 레몬
-  { radius: 86,  scoreValue: 15, img: './assets/img/circle4.png'  }, // 4: 귤
-  { radius: 97,  scoreValue: 21, img: './assets/img/circle5.png'  }, // 5: 사과
-  { radius: 113, scoreValue: 28, img: './assets/img/circle6.png'  }, // 6: 배
-  { radius: 130, scoreValue: 36, img: './assets/img/circle7.png'  }, // 7: 복숭아
-  { radius: 173, scoreValue: 45, img: './assets/img/circle8.png'  }, // 8: 파인애플
-  { radius: 216, scoreValue: 55, img: './assets/img/circle9.png'  }, // 9: 멜론
-  { radius: 259, scoreValue: 66, img: './assets/img/circle10.png' }, // 10: 수박
+  { radius: 24,  scoreValue: 1,  img: './assets/img/circle0.png'  }, // 0: 체리
+  { radius: 28,  scoreValue: 3,  img: './assets/img/circle1.png'  }, // 1: 딸기
+  { radius: 50,  scoreValue: 6,  img: './assets/img/circle2.png'  }, // 2: 포도
+  { radius: 56,  scoreValue: 10, img: './assets/img/circle3.png'  }, // 3: 레몬
+  { radius: 64,  scoreValue: 15, img: './assets/img/circle4.png'  }, // 4: 귤
+  { radius: 72,  scoreValue: 21, img: './assets/img/circle5.png'  }, // 5: 사과
+  { radius: 84,  scoreValue: 28, img: './assets/img/circle6.png'  }, // 6: 배
+  { radius: 96,  scoreValue: 36, img: './assets/img/circle7.png'  }, // 7: 복숭아
+  { radius: 128, scoreValue: 45, img: './assets/img/circle8.png'  }, // 8: 파인애플
+  { radius: 160, scoreValue: 55, img: './assets/img/circle9.png'  }, // 9: 멜론
+  { radius: 192, scoreValue: 66, img: './assets/img/circle10.png' }, // 10: 수박
 ];
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -123,7 +123,7 @@ function saveHighscore() {
 // ─── 과일 바디 생성 ──────────────────────────────────────────────────────────
 function makeFruitBody(x, y, sizeIdx, extra = {}) {
   const { radius, img } = FRUIT_CONFIG[sizeIdx];
-  const scale = radius / 512;
+  const scale = radius / 470;
   const body = Bodies.circle(x, y, radius, {
     ...FRICTION,
     ...extra,
@@ -430,6 +430,11 @@ function resizeCanvas() {
   el.ui.style.width          = '640px';
   el.ui.style.height         = '960px';
   el.ui.style.transform      = `scale(${scale})`;
+
+  engine.gravity.y = 1 / scale;
+
+  mouse.scale.x = 640 / w;
+  mouse.scale.y = 960 / h;
 
   const sideRight = document.getElementById('side-right');
   sideRight.style.height = isMobile ? 'auto' : `${h - (isTablet ? 64 : 128)}px`;
