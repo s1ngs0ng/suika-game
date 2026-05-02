@@ -1,0 +1,14 @@
+{
+  "name": "통이의 수박게임",
+  "short_name": "수박게임",
+  "description": "수박을 향해 과일을 합쳐가는 물리 기반 퍼즐 게임",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#030710",
+  "theme_color": "#030710",
+  "icons": [
+    { "src": "./assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
