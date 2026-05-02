@@ -171,12 +171,26 @@
 
     #evolution-ring {
       position: relative;
-      width: 320px;
-      height: 320px;
+      width: 360px;
+      height: 360px;
       border: 3px solid var(--white);
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.08);
       flex-shrink: 0;
+    }
+
+    /* ── 진화의 고리 중앙 화살표 ── */
+    #ring-center-arrow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      color: rgba(119, 214, 193, 0.75);
+      text-shadow: 0 0 14px rgba(119, 214, 193, 0.6);
+      pointer-events: none;
+      user-select: none;
+      line-height: 1;
     }
 
     /* ── 게임오버 ── */
@@ -193,7 +207,7 @@
     #game-end {
       text-align: center;
       padding: 36px 48px;
-      background: var(--bg-mid);
+      background: rgba(4, 21, 40, 0.9);
       border: 4px solid var(--yellow);
       box-shadow: 6px 6px 0 var(--yellow-dk);
     }
@@ -325,7 +339,7 @@
       }
       #game-score { font-size: 36px; }
       #game-next-fruit { width: 90px; height: 90px; }
-      #evolution-ring  { width: 240px; height: 240px; }
+      #evolution-ring  { width: 280px; height: 280px; }
     }
 
     /* ── 모바일 (< 700px) ── */
@@ -377,8 +391,6 @@
 
       #evolution-wrap  { display: none; }
 
-      #pokeball-btn { bottom: 14px; right: 14px; padding: 6px; }
-      #pokeball-btn img { width: 48px; height: 48px; }
     }
 
     /* ── 포켓몬 레이어 ── */
@@ -420,9 +432,31 @@
       border: 2px solid rgba(255, 255, 228, 0.35);
       border-radius: 50%;
       cursor: pointer;
-      padding: 18px;
+      padding: 10px;
       filter: drop-shadow(0 0 14px rgba(255, 255, 228, 0.5));
       transition: filter 0.2s, transform 0.2s, background 0.2s;
+    }
+
+    #pokeball-btn::before {
+      content: '눌러서 포켓몬 소환!';
+      position: absolute;
+      right: calc(100% + 12px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--bg-mid);
+      color: var(--cyan);
+      font-size: 11px;
+      font-family: 'Press Start 2P', monospace;
+      padding: 10px 14px;
+      border: 2px solid rgba(119, 214, 193, 0.45);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    #pokeball-btn:hover::before {
+      opacity: 1;
     }
 
     #pokeball-btn:hover {
@@ -446,6 +480,14 @@
 
     #pokeball-btn.throwing img {
       animation: pokeball-spin 0.5s ease-out forwards;
+    }
+
+    @media (max-width: 699px) {
+      #pokeball-btn { bottom: 14px; right: 14px; padding: 0; }
+      #pokeball-btn img { width: 45px; height: 45px; }
+      #pokeball-btn::before {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -504,7 +546,9 @@
       </div>
       <div id="evolution-wrap">
         <span class="box-label">진화의 고리</span>
-        <div id="evolution-ring"></div>
+        <div id="evolution-ring">
+          <div id="ring-center-arrow">↻</div>
+        </div>
       </div>
     </div>
   </div>

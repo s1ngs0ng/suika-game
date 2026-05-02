@@ -5,17 +5,17 @@ const {
 
 // ─── 이미지 교체 시 이 배열만 수정하면 됩니다 ───────────────────────────
 const FRUIT_CONFIG = [
-  { radius: 24,  scoreValue: 1,  img: './assets/img/circle0.png'  }, // 0: 체리
-  { radius: 28,  scoreValue: 3,  img: './assets/img/circle1.png'  }, // 1: 딸기
-  { radius: 50,  scoreValue: 6,  img: './assets/img/circle2.png'  }, // 2: 포도
-  { radius: 56,  scoreValue: 10, img: './assets/img/circle3.png'  }, // 3: 레몬
-  { radius: 64,  scoreValue: 15, img: './assets/img/circle4.png'  }, // 4: 귤
-  { radius: 72,  scoreValue: 21, img: './assets/img/circle5.png'  }, // 5: 사과
-  { radius: 84,  scoreValue: 28, img: './assets/img/circle6.png'  }, // 6: 배
-  { radius: 96,  scoreValue: 36, img: './assets/img/circle7.png'  }, // 7: 복숭아
-  { radius: 128, scoreValue: 45, img: './assets/img/circle8.png'  }, // 8: 파인애플
-  { radius: 160, scoreValue: 55, img: './assets/img/circle9.png'  }, // 9: 멜론
-  { radius: 192, scoreValue: 66, img: './assets/img/circle10.png' }, // 10: 수박
+  { radius: 20,  scoreValue: 1,  img: './assets/img/circle0.png',  spriteHalf: 276 }, // 0: 체리
+  { radius: 24,  scoreValue: 3,  img: './assets/img/circle1.png',  spriteHalf: 340 }, // 1: 딸기
+  { radius: 32,  scoreValue: 6,  img: './assets/img/circle2.png',  spriteHalf: 328 }, // 2: 포도
+  { radius: 45,  scoreValue: 10, img: './assets/img/circle3.png',  spriteHalf: 372 }, // 3: 레몬
+  { radius: 55,  scoreValue: 15, img: './assets/img/circle4.png',  spriteHalf: 509 }, // 4: 귤
+  { radius: 68,  scoreValue: 21, img: './assets/img/circle5.png',  spriteHalf: 393, ringSize: 50 }, // 5: 사과
+  { radius: 84,  scoreValue: 28, img: './assets/img/circle6.png',  spriteHalf: 409, ringSize: 53 }, // 6: 배
+  { radius: 103, scoreValue: 36, img: './assets/img/circle7.png',  spriteHalf: 434 }, // 7: 복숭아
+  { radius: 114, scoreValue: 45, img: './assets/img/circle8.png',  spriteHalf: 408 }, // 8: 파인애플
+  { radius: 127, scoreValue: 55, img: './assets/img/circle9.png',  spriteHalf: 511 }, // 9: 멜론
+  { radius: 156, scoreValue: 66, img: './assets/img/circle10.png', spriteHalf: 388 }, // 10: 수박
 ];
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ const render = Render.create({
     width:      640,
     height:     960,
     wireframes: false,
-    background: '#030710',
+    background: 'rgba(3, 7, 16, 0.9)',
   },
 });
 
@@ -122,8 +122,8 @@ function saveHighscore() {
 
 // ─── 과일 바디 생성 ──────────────────────────────────────────────────────────
 function makeFruitBody(x, y, sizeIdx, extra = {}) {
-  const { radius, img } = FRUIT_CONFIG[sizeIdx];
-  const scale = radius / 470;
+  const { radius, img, spriteHalf } = FRUIT_CONFIG[sizeIdx];
+  const scale = radius / spriteHalf;
   const body = Bodies.circle(x, y, radius, {
     ...FRICTION,
     ...extra,
@@ -175,20 +175,24 @@ function playPop(idx) {
 function buildEvolutionRing() {
   const ring = document.getElementById('evolution-ring');
   const total = FRUIT_CONFIG.length;
-  const R = 122;
+  const R = 140;
+
+  const minR = Math.min(...FRUIT_CONFIG.map(f => f.radius));
+  const maxR = Math.max(...FRUIT_CONFIG.map(f => f.radius));
 
   FRUIT_CONFIG.forEach((fruit, i) => {
     const angle = (2 * Math.PI * i) / total - Math.PI / 2;
     const x = R * Math.cos(angle);
     const y = R * Math.sin(angle);
-    const size = 32 + i * 3;
+    const size = fruit.ringSize ?? Math.round(28 + (fruit.radius - minR) / (maxR - minR) * 44);
 
     const img = document.createElement('img');
     img.src = fruit.img;
     img.style.cssText = `position:absolute;width:${size}px;height:${size}px;` +
       `left:calc(50% + ${x}px - ${size / 2}px);` +
       `top:calc(50% + ${y}px - ${size / 2}px);` +
-      `object-fit:contain;image-rendering:pixelated;`;
+      `object-fit:contain;image-rendering:pixelated;` +
+      `filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9));`;
     ring.appendChild(img);
   });
 }
@@ -405,6 +409,19 @@ function startGame() {
 
   Events.on(render, 'afterRender', drawGuideLine);
   Events.on(render, 'afterRender', drawDangerLine);
+
+  // 테스트용: 숫자키로 다음 과일 지정 (1~9=체리~파인애플, 0=멜론, -=수박)
+  const KEY_FRUIT = {
+    '1':0, '2':1, '3':2, '4':3, '5':4,
+    '6':5, '7':6, '8':7, '9':8, '0':9, '-':10,
+  };
+  document.addEventListener('keydown', e => {
+    if (game.state !== State.READY && game.state !== State.DROP) return;
+    const idx = KEY_FRUIT[e.key];
+    if (idx === undefined) return;
+    game.nextIdx = idx;
+    el.nextFruitImg.src = FRUIT_CONFIG[idx].img;
+  });
 }
 
 // ─── 메뉴 초기화 ─────────────────────────────────────────────────────────────
